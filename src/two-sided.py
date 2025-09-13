@@ -1,24 +1,48 @@
-def ab_test_proportions(xA: int, nA: int, xB: int, nB: int,
-                        alpha: float = 0.05,
-                        alternative: Alt = "two-sided") -> ABProportionResult:
-    assert 0 <= xA <= nA and 0 <= xB <= nB
-    pA, pB = xA/nA, xB/nB
+def ab_test_means(
+    A: np.ndarray,
+    B: np.ndarray,
+    alpha: float = 0.05,
+    bootstrap: bool = False,
+    boot_iters: int = 5000,
+    seed: int = 0
+) -> ABMeanResult:
+    """
+    Welch two-sample t-test for continuous outcomes.
+    If bootstrap=True, also returns a (nonparametric) bootstrap CI for the mean difference.
+    """
+    A = np.asarray(A, float); B = np.asarray(B, float)
+    nA, nB = len(A), len(B)
+    mA, mB = A.mean(), B.mean()
+    sA2, sB2 = A.var(ddof=1), B.var(ddof=1)
 
-    # z-test (pooled SE under H0)
-    p_pool = (xA + xB) / (nA + nB)
-    se0 = math.sqrt(p_pool * (1 - p_pool) * (1/nA + 1/nB))
-    z = (pB - pA) / se0 if se0 > 0 else 0.0
-    pval = _p_from_z(z, alternative)
+    # Welch t-test (robust to unequal variances)
+    t_stat, p_val = ttest_ind(A, B, equal_var=False)
 
-    # 95% CI for difference using *unpooled* SE (Wald)
-    se = math.sqrt(pA*(1-pA)/nA + pB*(1-pB)/nB)
-    zc = norm.ppf(1 - alpha/2)
-    ci = ((pB - pA) - zc*se, (pB - pA) + zc*se)
+    # Welch CI for mean difference
+    se = np.sqrt(sA2/nA + sB2/nB)
+    # Welch–Satterthwaite degrees of freedom
+    df = (sA2/nA + sB2/nB)**2 / ((sA2**2)/(nA**2*(nA-1)) + (sB2**2)/(nB**2*(nB-1)))
+    tcrit = t.ppf(1 - alpha/2, df)
+    ci = ((mB - mA) - tcrit*se, (mB - mA) + tcrit*se)
 
-    # Cohen's h (standardized effect for proportions)
-    phi = lambda p: 2*math.asin(math.sqrt(p))
-    h = phi(pB) - phi(pA)
+    # Effect sizes
+    sp = np.sqrt(((nA-1)*sA2 + (nB-1)*sB2) / (nA + nB - 2)) if (nA+nB-2) > 0 else 0.0
+    d = (mB - mA) / sp if sp > 0 else 0.0
+    J = 1 - 3/(4*(nA+nB) - 9) if (nA+nB) > 3 else 1.0
+    g = J * d
 
-    lift_abs = pB - pA
-    lift_rel = (pB/pA - 1) if pA > 0 else float("inf")
-    return ABProportionResult(pA, pB, lift_abs, lift_rel, z, pval, ci, h)
+    boot_ci = None
+    if bootstrap:
+        rng = np.random.default_rng(seed)
+        diffs = []
+        for _ in range(boot_iters):
+            diff = rng.choice(A, nA, replace=True).mean() - rng.choice(B, nB, replace=True).mean()
+            diffs.append(diff)
+        lo, hi = np.quantile(diffs, [alpha/2, 1 - alpha/2])
+        boot_ci = (lo, hi)
+
+    return ABMeanResult(
+        mean_A=mA, mean_B=mB, diff=(mB - mA),
+        t_stat=t_stat, p_value=p_val, ci_diff=ci,
+        cohen_d=d, hedges_g=g, boot_ci_diff=boot_ci
+    )

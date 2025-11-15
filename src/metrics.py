@@ -8,3 +8,9 @@ def high_value(revenue: float,threshold: int) -> float:
         return 1
     else:
         return 0
+        
+def multiple_purchase(orders: float,threshold: int) -> float:
+    if orders >= threshold:
+        return 1
+    else:
+        return 0

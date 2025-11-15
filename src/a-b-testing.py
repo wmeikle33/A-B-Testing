@@ -1,52 +1,66 @@
-import math
 from dataclasses import dataclass
-from typing import Literal, Tuple
-import numpy as np
-from scipy.stats import norm
-
-Alt = Literal["two-sided", "larger", "smaller"]
 
 @dataclass
-class ABResult:
-    p_A: float
-    p_B: float
-    lift_abs: float          # B - A (percentage points in 0..1 scale)
-    lift_rel: float          # (B/A - 1)
-    z: float
+class ABTestContinuousResult:
+    mean_A: float
+    mean_B: float
+    diff: float
+    rel_diff: float
+    t_stat: float
     p_value: float
-    ci_diff: Tuple[float, float]  # CI for (p_B - p_A)
-    cohen_h: float
+    ci_low: float
+    ci_high: float
+    n_A: int
+    n_B: int
 
-def _z_pvalue(z: float, alternative: Alt) -> float:
-    if alternative == "two-sided":
-        return 2 * (1 - norm.cdf(abs(z)))
-    if alternative == "larger":   # H1: pB > pA
-        return 1 - norm.cdf(z)
-    if alternative == "smaller":  # H1: pB < pA
-        return norm.cdf(z)
-    raise ValueError("bad alternative")
+def run_ab_test_continuous(
+    df: pd.DataFrame,
+    group_col: str,
+    metric_col: str,
+    control_label="A",
+    treatment_label="B",
+    alpha=0.05,
+) -> ABTestContinuousResult:
+    # Extract data
+    A = df.loc[df[group_col] == control_label, metric_col].values
+    B = df.loc[df[group_col] == treatment_label, metric_col].values
 
-def two_proportion_ztest(conv_A: int, n_A: int, conv_B: int, n_B: int,
-                         alpha: float = 0.05, alternative: Alt = "two-sided") -> ABResult:
-    """Classical pooled z-test for proportions. Balanced or not; small-sample -> prefer exact test."""
-    if not (0 <= conv_A <= n_A and 0 <= conv_B <= n_B):
-        raise ValueError("counts must be within sample sizes")
-    pA = conv_A / n_A
-    pB = conv_B / n_B
-    # pooled SE under H0 (pA == pB)
-    p_pool = (conv_A + conv_B) / (n_A + n_B)
-    se = math.sqrt(p_pool * (1 - p_pool) * (1/n_A + 1/n_B))
-    z = (pB - pA) / se if se > 0 else 0.0
-    pval = _z_pvalue(z, alternative)
+    # Basic stats
+    mean_A = A.mean()
+    mean_B = B.mean()
+    n_A, n_B = A.size, B.size
+    std_A = A.std(ddof=1)
+    std_B = B.std(ddof=1)
 
-    # CI for difference using unpooled SE (Wald); for small n use Newcombe/Wilson instead
-    se_unpooled = math.sqrt(pA*(1-pA)/n_A + pB*(1-pB)/n_B)
-    zc = norm.ppf(1 - alpha/2)
-    ci = ( (pB - pA) - zc*se_unpooled, (pB - pA) + zc*se_unpooled )
+    # Welch's t-test
+    t_stat, p_value = stats.ttest_ind(B, A, equal_var=False)
 
-    # Cohen's h (effect size for proportions)
-    def _phi(p): return 2*math.asin(math.sqrt(p))
-    h = _phi(pB) - _phi(pA)
+    # Effect sizes
+    diff = mean_B - mean_A
+    rel_diff = diff / mean_A if mean_A != 0 else np.nan
+
+    # SE and Welch df
+    se_diff = np.sqrt(std_A**2 / n_A + std_B**2 / n_B)
+    df_welch = (std_A**2 / n_A + std_B**2 / n_B)**2 / (
+        (std_A**2 / n_A)**2 / (n_A - 1) + (std_B**2 / n_B)**2 / (n_B - 1)
+    )
+
+    t_crit = stats.t.ppf(1 - alpha/2, df_welch)
+    ci_low = diff - t_crit * se_diff
+    ci_high = diff + t_crit * se_diff
+
+    return ABTestContinuousResult(
+        mean_A=mean_A,
+        mean_B=mean_B,
+        diff=diff,
+        rel_diff=rel_diff,
+        t_stat=t_stat,
+        p_value=p_value,
+        ci_low=ci_low,
+        ci_high=ci_high,
+        n_A=n_A,
+        n_B=n_B,
+    )
 
     lift_abs = pB - pA
     lift_rel = (pB / pA - 1.0) if pA > 0 else float("inf")

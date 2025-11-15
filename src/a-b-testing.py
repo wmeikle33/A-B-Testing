@@ -65,3 +65,50 @@ def run_ab_test_continuous(
     lift_abs = pB - pA
     lift_rel = (pB / pA - 1.0) if pA > 0 else float("inf")
     return ABResult(p_A=pA, p_B=pB, lift_abs=lift_abs, lift_rel=lift_rel, z=z, p_value=pval, ci_diff=ci, cohen_h=h)
+
+from dataclasses import dataclass
+
+@dataclass
+class PairedTTestResult:
+    mean_A: float
+    mean_B: float
+    mean_diff: float
+    t_stat: float
+    p_value: float
+    ci_low: float
+    ci_high: float
+    n: int
+
+def run_paired_t_test(A, B, alpha=0.05) -> PairedTTestResult:
+    A = np.asarray(A)
+    B = np.asarray(B)
+    if A.shape != B.shape:
+        raise ValueError("A and B must have the same shape for a paired t-test.")
+    
+    diff = B - A
+    n = diff.size
+    mean_A = A.mean()
+    mean_B = B.mean()
+    mean_diff = diff.mean()
+    std_diff = diff.std(ddof=1)
+    
+    # t-statistic and p-value (two-sided)
+    t_stat, p_value = stats.ttest_rel(B, A)
+    
+    # CI for the mean difference
+    df = n - 1
+    se_diff = std_diff / np.sqrt(n)
+    t_crit = stats.t.ppf(1 - alpha/2, df)
+    ci_low = mean_diff - t_crit * se_diff
+    ci_high = mean_diff + t_crit * se_diff
+    
+    return PairedTTestResult(
+        mean_A=mean_A,
+        mean_B=mean_B,
+        mean_diff=mean_diff,
+        t_stat=t_stat,
+        p_value=p_value,
+        ci_low=ci_low,
+        ci_high=ci_high,
+        n=n,
+    )

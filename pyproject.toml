@@ -1,0 +1,7 @@
+[project]
+name = "abtest"
+version = "0.1.0"
+dependencies = ["pandas"]
+
+[project.scripts]
+abtest = "abtest.cli:main"

@@ -61,6 +61,45 @@ ab-testing/
 └── tests/
     ├── test_stats.py
     ├── test_cuped.py
+    └── test_sanity.py
 
 ```
-    └── test_sanity.py
+
+## Quick end-to-end example (A/B test with confidence interval)
+
+Assume you have event-level data like:
+
+| user_id | variant | converted |
+|--------:|:--------|----------:|
+| 1       | control | 0         |
+| 2       | control | 1         |
+| 3       | treatment | 0       |
+| 4       | treatment | 1       |
+
+```python
+import pandas as pd
+from abtest import analyze_proportions  # adjust import to your package
+
+# 1) Load data
+df = pd.read_csv("data/experiment.csv")
+
+# 2) Define metric
+# Here the metric is conversion rate: mean(converted) per variant
+
+# 3) Run test
+result = analyze_proportions(
+    df=df,
+    variant_col="variant",
+    outcome_col="converted",
+    control_label="control",
+    treatment_label="treatment",
+    alpha=0.05,
+)
+
+# 4) Print decision + CI
+print(f"Control CR:   {result.control_rate:.4f}")
+print(f"Treatment CR: {result.treatment_rate:.4f}")
+print(f"Lift:         {result.lift:.2%}")
+print(f"95% CI:       [{result.ci_low:.2%}, {result.ci_high:.2%}]")
+print(f"p-value:      {result.p_value:.4g}")
+print(f"Decision:     {result.decision}")

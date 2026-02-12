@@ -29,8 +29,6 @@ pip install -r requirements.txt
 
 ## Repo Setup
 
----
-
 ab-testing/
 ├── README.md
 ├── requirements.txt

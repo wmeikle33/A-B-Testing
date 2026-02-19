@@ -23,7 +23,11 @@ A practical, reproducible A/B testing repo that shows both **how to design exper
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e .
+
+abtest
+# or
+abtest --n 10000 --p-control 0.10 --p-treat 0.105
 
 ```
 

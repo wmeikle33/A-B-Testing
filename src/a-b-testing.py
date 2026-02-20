@@ -161,3 +161,4 @@ def independent_t_test(A, B, alpha=0.05):
         "df": df,
     }
 
+def anova():

@@ -16,3 +16,10 @@ dependencies = [
 
 [project.scripts]
 abtest = "abtest.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.6.0",
+  "black>=24.0.0",
+  "pytest>=7.0.0",
+]

@@ -28,7 +28,6 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e .
 
 abtest
-# or
 abtest --n 10000 --p-control 0.10 --p-treat 0.105
 
 ```

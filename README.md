@@ -21,6 +21,8 @@ A practical, reproducible A/B testing repo that shows both **how to design exper
 ## Quickstart
 
 ```bash
+git clone https://github.com/wmeikle33/A-B-Testing.git
+cd A-B-Testing
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e .

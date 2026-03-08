@@ -16,6 +16,7 @@ What’s included:
 """
 
 from __future__ import annotations
+import math
 
 from dataclasses import dataclass
 from typing import Iterable, Literal, Optional, Tuple, Dict, Any, List

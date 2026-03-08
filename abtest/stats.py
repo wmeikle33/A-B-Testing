@@ -422,3 +422,5 @@ def benjamini_hochberg(p_values: Iterable[float], q: float = 0.1) -> Dict[str, A
     rejected[order] = rejected_sorted
 
     return {"rejected": rejected, "cutoff_p": cutoff, "q": q}
+
+def one_way_anova(...):
